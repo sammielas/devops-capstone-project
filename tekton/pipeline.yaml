@@ -1,7 +1,6 @@
----
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
-metadata:  
+metadata:
   name: cd-pipeline
 spec:
   workspaces:
@@ -14,24 +13,24 @@ spec:
     - name: init
       workspaces:
         - name: source
-          workspace: pipeline-workspace          
+          workspace: pipeline-workspace
       taskRef:
         name: cleanup
 
     - name: clone
       workspaces:
         - name: output
-          workspace: pipeline-workspace          
+          workspace: pipeline-workspace
       taskRef:
         name: git-clone
       params:
-      - name: url
-        value: $(params.repo-url)
-      - name: revision
-        value: $(params.branch)
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.branch)
       runAfter:
         - init
-   
+
     - name: lint
       workspaces:
         - name: source
@@ -39,13 +38,27 @@ spec:
       taskRef:
         name: flake8
       params:
-      - name: image
-        value: "python:3.9-slim"
-      - name: args
-        value: ["--count", "--max-complexity=10", "--max-line-length=127", "--statistics", "--exit-zero"]
+        - name: image
+          value: python:3.9-slim
+        - name: args
+          value:
+            - --count
+            - --max-complexity=10
+            - --max-line-length=127
+            - --statistics
+            - --exit-zero
       runAfter:
         - clone
-      when:
-        - input: "$(tasks.clone.results.success)"
-          operator: in
-          values: ["true", "false"]
+    - name: tests
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: nose
+      params:
+      - name: database_uri
+        value: "sqlite:///test.db"
+      - name: args
+        value: "-v --with-spec --spec-color"
+      runAfter:
+        - clone
